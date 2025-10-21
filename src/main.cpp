@@ -1,32 +1,18 @@
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 
-// called this way, it uses the default address 0x40
-// Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
-// you can also call it with a different address you want
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x41);
-// you can also call it with a different address and I2C interface
-// Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire);
+// change this depending on the address of the pwm shield
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
 
-// Depending on your servo make, the pulse width min and max may vary, you
-// want these to be as small/large as possible without hitting the hard stop
-// for max range. You'll have to tweak them as necessary to match the servos you
-// have!
-#define SERVOMIN 150  // This is the 'minimum' pulse length count (out of 4096)
-#define SERVOMAX 600  // This is the 'maximum' pulse length count (out of 4096)
-#define USMIN 600     // This is the rounded 'minimum' microsecond length based on the minimum pulse of 150
-#define USMAX 2400    // This is the rounded 'maximum' microsecond length based on the maximum pulse of 600
 #define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
-
-// our servo # counter
-uint8_t servonum = 0;
 
 void setup()
 {
   Serial.begin(9600);
-  Serial.println("7 channel Servo test!");
+  Serial.println("Welcome to pick and place v0.0.1");
 
   pwm.begin();
+
   /*
    * In theory the internal oscillator (clock) is 25MHz but it really isn't
    * that precise. You can 'calibrate' this by tweaking this number until
@@ -44,7 +30,7 @@ void setup()
    * Failure to correctly set the int.osc value will cause unexpected PWM results
    */
   pwm.setOscillatorFrequency(27000000);
-  pwm.setPWMFreq(SERVO_FREQ); // Analog servos run at ~50 Hz updates
+  pwm.setPWMFreq(SERVO_FREQ);
 
   delay(10);
 }
@@ -70,37 +56,26 @@ void setServoPulse(uint8_t n, double pulse)
 
 void loop()
 {
-  // Drive each servo one at a time using setPWM()
-  Serial.println(servonum);
-  for (uint16_t pulselen = SERVOMIN; pulselen < SERVOMAX; pulselen++)
-  {
-    pwm.setPWM(servonum, 0, pulselen);
-  }
+  pwm.setPWM(6, 0, 250); // rotate base back
 
-  delay(500);
-  for (uint16_t pulselen = SERVOMAX; pulselen > SERVOMIN; pulselen--)
-  {
-    pwm.setPWM(servonum, 0, pulselen);
-  }
+  pwm.setPWM(3, 0, 150); // lower upper arm
+  pwm.setPWM(7, 0, 400); // open grip
 
-  delay(500);
+  delay(2000);
 
-  // Drive each servo one at a time using writeMicroseconds(), it's not precise due to calculation rounding!
-  // The writeMicroseconds() function is used to mimic the Arduino Servo library writeMicroseconds() behavior.
-  for (uint16_t microsec = USMIN; microsec < USMAX; microsec++)
-  {
-    pwm.writeMicroseconds(servonum, microsec);
-  }
+  pwm.setPWM(7, 0, 150); // engage grip
+  
+  delay(1000);
 
-  delay(500);
-  for (uint16_t microsec = USMAX; microsec > USMIN; microsec--)
-  {
-    pwm.writeMicroseconds(servonum, microsec);
-  }
+  pwm.setPWM(3, 0, 100); // lift up upper arm 
+  pwm.setPWM(6, 0, 150); // rotate base
 
   delay(500);
 
-  servonum++;
-  if (servonum > 6)
-    servonum = 0; // Testing the first 7 servo channels
+  pwm.setPWM(3, 0, 150); // lower upper arm
+  pwm.setPWM(7, 0, 400); // open grip
+
+  // pins 4 and 5 are the "forearm"
+
+  delay(2000);
 }

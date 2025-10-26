@@ -21,10 +21,10 @@ uint8_t SERVO_E  = 0;
 uint8_t SERVO_F  = 2;
 uint8_t Elbow_Vertical   = 2;
 
-#define MOVEOUT 119
-#define MOVEIN 115
-#define MOVECLOCKWISE 97
-#define MOVECOUNTERCLOCKWISE 100
+#define MOVEOUT 119 // W
+#define MOVEIN 115 // S
+#define MOVECLOCKWISE 97 // A
+#define MOVECOUNTERCLOCKWISE 100 // D
 Adafruit_PWMServoDriver servo = Adafruit_PWMServoDriver();
 
 float Forearm = 2.5; // Remember to update this

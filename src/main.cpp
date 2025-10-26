@@ -5,7 +5,7 @@
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
 
 #define SERVOMIN  55 // Subject to change, based on testing
-#define SERVOMAX  515 // Subject to change, based on testing
+#define SERVOMAX  465 // Subject to change, based on testing
 #define USMIN  600  // Subject to change, based on testing
 #define USMAX  2400 // Subject to change, based on testing
 #define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates

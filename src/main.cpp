@@ -1,106 +1,102 @@
+#include <math.h>
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 
-// called this way, it uses the default address 0x40
-// Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
-// you can also call it with a different address you want
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x41);
-// you can also call it with a different address and I2C interface
-// Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40, Wire);
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
 
-// Depending on your servo make, the pulse width min and max may vary, you
-// want these to be as small/large as possible without hitting the hard stop
-// for max range. You'll have to tweak them as necessary to match the servos you
-// have!
-#define SERVOMIN 150  // This is the 'minimum' pulse length count (out of 4096)
-#define SERVOMAX 600  // This is the 'maximum' pulse length count (out of 4096)
-#define USMIN 600     // This is the rounded 'minimum' microsecond length based on the minimum pulse of 150
-#define USMAX 2400    // This is the rounded 'maximum' microsecond length based on the maximum pulse of 600
+#define SERVOMIN  55 // Subject to change, based on testing
+#define SERVOMAX  515 // Subject to change, based on testing
+#define USMIN  600  // Subject to change, based on testing
+#define USMAX  2400 // Subject to change, based on testing
 #define SERVO_FREQ 50 // Analog servos run at ~50 Hz updates
+// 100 - 15
+// A guess - will need to be recalibrated in testing
+uint8_t SERVO_A  = 6;
+uint8_t SERVO_B1 = 5;
+uint8_t SERVO_B2 = 4;
+uint8_t SERVO_C = 3;
 
-// our servo # counter
-uint8_t servonum = 0;
+uint8_t SERVO_D  = 1;
+uint8_t SERVO_E  = 0;
+uint8_t SERVO_F  = 2;
+uint8_t Elbow_Vertical   = 2;
 
-void setup()
+#define MOVEOUT 119
+#define MOVEIN 115
+#define MOVECLOCKWISE 97
+#define MOVECOUNTERCLOCKWISE 100
+Adafruit_PWMServoDriver servo = Adafruit_PWMServoDriver();
+
+float Forearm = 2.5; // Remember to update this
+float Aftarm  = 2.5; // Remember to update this
+
+void setup() {
+  Serial.begin(9600); // Output to connected computer
+  Serial.println("Begin controlling now"); // Idk we may need a more appropriate startup message but that *is* the end goal so
+
+  servo.begin(); // Initialise connection to the adafruit servo controller thingy
+  servo.setOscillatorFrequency(27*pow(10,6)); // Set the oscillator to 27MHz
+  servo.setPWMFreq(SERVO_FREQ);  // Tells the PWM board the speed to output to the servos
+
+  delay(10); // Wait 10ms
+};
+
+float mapf(float x, float in_min, float in_max, float out_min, float out_max)
 {
-  Serial.begin(9600);
-  Serial.println("7 channel Servo test!");
-
-  pwm.begin();
-  /*
-   * In theory the internal oscillator (clock) is 25MHz but it really isn't
-   * that precise. You can 'calibrate' this by tweaking this number until
-   * you get the PWM update frequency you're expecting!
-   * The int.osc. for the PCA9685 chip is a range between about 23-27MHz and
-   * is used for calculating things like writeMicroseconds()
-   * Analog servos run at ~50 Hz updates, It is importaint to use an
-   * oscilloscope in setting the int.osc frequency for the I2C PCA9685 chip.
-   * 1) Attach the oscilloscope to one of the PWM signal pins and ground on
-   *    the I2C PCA9685 chip you are setting the value for.
-   * 2) Adjust setOscillatorFrequency() until the PWM update frequency is the
-   *    expected value (50Hz for most ESCs)
-   * Setting the value here is specific to each individual I2C PCA9685 chip and
-   * affects the calculations for the PWM update frequency.
-   * Failure to correctly set the int.osc value will cause unexpected PWM results
-   */
-  pwm.setOscillatorFrequency(27000000);
-  pwm.setPWMFreq(SERVO_FREQ); // Analog servos run at ~50 Hz updates
-
-  delay(10);
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-// You can use this function if you'd like to set the pulse length in seconds
-// e.g. setServoPulse(0, 0.001) is a ~1 millisecond pulse width. It's not precise!
-void setServoPulse(uint8_t n, double pulse)
-{
-  double pulselength;
+int moveto(int radius, int deg) {
+  radius = constrain(radius, 0, Forearm + Aftarm); // Stops you from going to a location farther away than the robot can reach
+  deg = deg%360; // Converts all angles to a number between 1 & 360
 
-  pulselength = 1000000;     // 1,000,000 us per second
-  pulselength /= SERVO_FREQ; // Analog servos run at ~60 Hz updates
-  Serial.print(pulselength);
-  Serial.println(" us per period");
-  pulselength /= 4096; // 12 bits of resolution
-  Serial.print(pulselength);
-  Serial.println(" us per bit");
-  pulse *= 1000000; // convert input seconds to us
-  pulse /= pulselength;
-  Serial.println(pulse);
-  pwm.setPWM(n, 0, pulse);
+  servo.setPWM(SERVO_A, 0, map(deg, 0, 360, SERVOMIN, SERVOMAX)); // Spins the base of the robot to the desired angle
+
+  float Base_Vert_Angle = acos((pow(radius, 2)+pow(Aftarm, 2) - pow(Forearm,2))/2*Forearm*radius); // Gets the angle of the shoulder joint using the law of cosines.
+  servo.setPWM(SERVO_B1, 0, mapf(Base_Vert_Angle, 0, 360, SERVOMIN, SERVOMAX)); // Raises the shoulder to the desired angle
+
+
+  float Elbow_Vert_Angle = acos((pow(Forearm, 2) + pow(Aftarm, 2) - pow(radius, 2)) / 2 * Forearm * Aftarm); // Gets the angle of the shoulder joint using the law of cosines.
+  servo.setPWM(Elbow_Vertical, 0, mapf(Elbow_Vert_Angle, 0, 360, SERVOMIN, SERVOMAX)); // Raises the elbow to the desired angle
+  return 1;
 }
 
-void loop()
-{
-  // Drive each servo one at a time using setPWM()
-  Serial.println(servonum);
-  for (uint16_t pulselen = SERVOMIN; pulselen < SERVOMAX; pulselen++)
-  {
-    pwm.setPWM(servonum, 0, pulselen);
+
+int pos_y = 0;
+int pos_deg = 0;
+int serial_val;
+int val;
+void loop() {
+  // int success = moveto(sin(wave), wave%360);
+  // wave = (wave+1)%360;
+  if (Serial.available()) {
+    serial_val = Serial.read();
+    Serial.println("Position:");
+    Serial.println(pos_deg);
+    Serial.println(pos_y);
+    switch(serial_val) {
+      case MOVEOUT:
+        Serial.println("MOVING OUT");
+        pos_y += 1;
+        break;
+      case MOVEIN:
+        Serial.println("MOVING IN");
+        pos_y -= 1;
+        break;
+      case MOVECLOCKWISE:
+        Serial.println("MOVING CLOCKWISE");
+        pos_deg -= 5;
+        break;
+      case MOVECOUNTERCLOCKWISE:
+        Serial.println("MOVING COUNTERCLOCKWISE");
+        pos_deg += 5;
+        break;
+      default:
+        break;
+    }
+    servo.setPWM(SERVO_A,0,pos_deg);
+    servo.setPWM(SERVO_B1,0,pos_y);
+    // moveto(pos_y,pos_deg);
   }
+};
 
-  delay(500);
-  for (uint16_t pulselen = SERVOMAX; pulselen > SERVOMIN; pulselen--)
-  {
-    pwm.setPWM(servonum, 0, pulselen);
-  }
-
-  delay(500);
-
-  // Drive each servo one at a time using writeMicroseconds(), it's not precise due to calculation rounding!
-  // The writeMicroseconds() function is used to mimic the Arduino Servo library writeMicroseconds() behavior.
-  for (uint16_t microsec = USMIN; microsec < USMAX; microsec++)
-  {
-    pwm.writeMicroseconds(servonum, microsec);
-  }
-
-  delay(500);
-  for (uint16_t microsec = USMAX; microsec > USMIN; microsec--)
-  {
-    pwm.writeMicroseconds(servonum, microsec);
-  }
-
-  delay(500);
-
-  servonum++;
-  if (servonum > 6)
-    servonum = 0; // Testing the first 7 servo channels
-}

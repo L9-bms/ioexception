@@ -16,9 +16,9 @@ uint8_t SERVO_B1 = 5;
 uint8_t SERVO_B2 = 4;
 uint8_t SERVO_C = 3;
 
-uint8_t SERVO_D  = 1;
-uint8_t SERVO_E  = 0;
-uint8_t SERVO_F  = 2;
+uint8_t SERVO_D  = 0;
+uint8_t SERVO_E  = 2;
+uint8_t SERVO_F  = 1;
 uint8_t Elbow_Vertical   = 2;
 
 #define MOVEOUT 119 // W
@@ -27,8 +27,9 @@ uint8_t Elbow_Vertical   = 2;
 #define MOVECOUNTERCLOCKWISE 100 // D
 Adafruit_PWMServoDriver servo = Adafruit_PWMServoDriver();
 
-float Forearm = 2.5; // Remember to update this
-float Aftarm  = 2.5; // Remember to update this
+// Side Lengths joint-to-joint(CM)
+float Forearm = 20;
+float Aftarm  = 13;
 
 void setup() {
   Serial.begin(9600); // Output to connected computer
@@ -48,25 +49,25 @@ float mapf(float x, float in_min, float in_max, float out_min, float out_max)
 
 int moveto(int radius, int deg) {
   radius = constrain(radius, 0, Forearm + Aftarm); // Stops you from going to a location farther away than the robot can reach
-  deg = deg%360; // Converts all angles to a number between 1 & 360
+  deg = deg%180; // Converts all angles to a number between 1 & 180
 
-  servo.setPWM(SERVO_A, 0, map(deg, 0, 360, SERVOMIN, SERVOMAX)); // Spins the base of the robot to the desired angle
-
-  float Base_Vert_Angle = acos((pow(radius, 2)+pow(Aftarm, 2) - pow(Forearm,2))/2*Forearm*radius); // Gets the angle of the shoulder joint using the law of cosines.
+  servo.setPWM(SERVO_A, 0, mapf(deg, 0, 180, SERVOMIN, SERVOMAX)); // Spins the base of the robot to the desired angle
+  //                              a^2                + b^2                - c^2                / 2ab
+  float Base_Vert_Angle = acos((pow(radius, 2) + pow(Aftarm, 2) - pow(Forearm,2))/(2 * Forearm * radius)) * 180/PI; // Gets the angle of the shoulder joint using the law of cosines.
   servo.setPWM(SERVO_B1, 0, mapf(Base_Vert_Angle, 0, 360, SERVOMIN, SERVOMAX)); // Raises the shoulder to the desired angle
 
 
-  float Elbow_Vert_Angle = acos((pow(Forearm, 2) + pow(Aftarm, 2) - pow(radius, 2)) / 2 * Forearm * Aftarm); // Gets the angle of the shoulder joint using the law of cosines.
+  float Elbow_Vert_Angle = acos((pow(Forearm, 2) + pow(Aftarm, 2) - pow(radius, 2)) / (2 * Forearm * Aftarm)) * 180/PI; // Gets the angle of the shoulder joint using the law of cosines.
   servo.setPWM(Elbow_Vertical, 0, mapf(Elbow_Vert_Angle, 0, 360, SERVOMIN, SERVOMAX)); // Raises the elbow to the desired angle
   return 1;
 }
 
 
-int pos_y = 0;
+int pos_y = 18;
 int pos_deg = 0;
 int serial_val;
-int val;
 void loop() {
+int val;
   // int success = moveto(sin(wave), wave%360);
   // wave = (wave+1)%360;
   if (Serial.available()) {
@@ -94,8 +95,12 @@ void loop() {
       default:
         break;
     }
-    servo.setPWM(SERVO_A,0,pos_deg);
-    servo.setPWM(SERVO_B1,0,pos_y);
+    if (pos_deg <= 180) {
+      servo.setPWM(SERVO_A, 0, mapf(pos_deg, 0, 180, SERVOMIN, SERVOMAX));
+
+      servo.setPWM(SERVO_B1, 0, mapf(360-pos_y*10, 180, 360, SERVOMIN, SERVOMAX));
+      servo.setPWM(SERVO_C, 0, mapf(360-pos_y*10, 180, 360, SERVOMIN, SERVOMAX));
+    }
     // moveto(pos_y,pos_deg);
   }
 };
